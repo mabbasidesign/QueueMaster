@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PaymentService.Data;
+using PaymentService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +10,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<PaymentDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+// Register PaymentService
+builder.Services.AddScoped<IPaymentService, PaymentService.Services.PaymentService>();
 
 var app = builder.Build();
 
