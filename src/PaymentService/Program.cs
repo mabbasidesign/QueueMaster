@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using PaymentService.Data;
 using PaymentService.Dtos;
 using PaymentService.Services;
+using PaymentService.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,11 @@ builder.Services.AddDbContext<PaymentDbContext>(options =>
 
 // Register PaymentService
 builder.Services.AddScoped<IPaymentService, PaymentService.Services.PaymentService>();
+
+// Register Service Bus
+builder.Services.Configure<ServiceBusOptions>(builder.Configuration.GetSection("ServiceBus"));
+builder.Services.AddScoped<IServiceBusConsumer, ServiceBusConsumer>();
+builder.Services.AddHostedService<ServiceBusConsumer>();
 
 var app = builder.Build();
 

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using OrderService.Data;
 using OrderService.Dtos;
 using OrderService.Services;
+using OrderService.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,10 @@ builder.Services.AddDbContext<OrderDbContext>(options =>
 
 // Register OrderService
 builder.Services.AddScoped<IOrderService, OrderService.Services.OrderService>();
+
+// Register Service Bus
+builder.Services.Configure<ServiceBusOptions>(builder.Configuration.GetSection("ServiceBus"));
+builder.Services.AddScoped<IServiceBusPublisher, ServiceBusPublisher>();
 
 var app = builder.Build();
 
@@ -66,7 +71,7 @@ app.MapGet("/api/orders/{id}", async (int id, IOrderService orderService) =>
 .WithName("GetOrderById")
 .WithOpenApi();
 
-app.MapPost("/api/orders", async (CreateOrderRequest request, IOrderService orderService) =>
+app.MapPost("/api/orders", async (CreateOrderRequest request, IOrderService orderService, IServiceBusPublisher publisher) =>
 {
     var order = new OrderService.Models.Order
     {
@@ -79,13 +84,25 @@ app.MapPost("/api/orders", async (CreateOrderRequest request, IOrderService orde
     };
     
     var created = await orderService.CreateOrderAsync(order);
+    var totalAmount = created.Quantity * created.UnitPrice;
+    
+    // Publish OrderCreated event to Service Bus
+    await publisher.PublishOrderCreatedAsync(
+        created.Id,
+        created.CustomerName,
+        created.ProductName,
+        created.Quantity,
+        created.UnitPrice,
+        totalAmount,
+        created.CreatedAtUtc);
+    
     var response = new OrderResponse(
         created.Id,
         created.CustomerName,
         created.ProductName,
         created.Quantity,
         created.UnitPrice,
-        created.Quantity * created.UnitPrice,
+        totalAmount,
         created.Status,
         created.CreatedAtUtc);
     return Results.Created($"/api/orders/{response.Id}", response);
