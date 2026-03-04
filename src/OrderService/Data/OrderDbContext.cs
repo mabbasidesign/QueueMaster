@@ -10,6 +10,7 @@ public class OrderDbContext : DbContext
     }
 
     public DbSet<Order> Orders { get; set; }
+    public DbSet<OutboxEvent> OutboxEvents { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -94,5 +95,22 @@ public class OrderDbContext : DbContext
                 }
             );
         });
+
+            modelBuilder.Entity<OutboxEvent>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+            
+                entity.Property(e => e.EventType)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.Payload)
+                    .IsRequired();
+
+                entity.Property(e => e.CreatedAt)
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                entity.HasIndex(e => new { e.IsPublished, e.CreatedAt });
+            });
     }
 }

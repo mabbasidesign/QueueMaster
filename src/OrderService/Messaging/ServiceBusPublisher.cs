@@ -89,6 +89,33 @@ public class ServiceBusPublisher : IServiceBusPublisher
         }
     }
 
+    public async Task PublishAsync(string eventType, string jsonPayload, CancellationToken cancellationToken = default)
+    {
+        if (!_options.Enabled || _sender is null)
+        {
+            _logger.LogInformation($"Service Bus disabled, skipping publish for event type {eventType}");
+            return;
+        }
+
+        try
+        {
+            var message = new ServiceBusMessage(jsonPayload)
+            {
+                ContentType = "application/json",
+                Subject = eventType,
+                CorrelationId = $"{eventType}-{DateTime.UtcNow.Ticks}"
+            };
+
+            await _sender.SendMessageAsync(message, cancellationToken);
+            _logger.LogInformation($"Published {eventType} event to Service Bus");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Failed to publish {eventType} event to Service Bus");
+            throw;
+        }
+    }
+
     public void Dispose()
     {
         _sender?.DisposeAsync().GetAwaiter().GetResult();

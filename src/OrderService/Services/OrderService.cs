@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using OrderService.Data;
 using OrderService.Models;
+using OrderService.Events;
+using System.Text.Json;
 
 namespace OrderService.Services;
 
@@ -25,7 +27,33 @@ public class OrderService : IOrderService
 
     public async Task<Order> CreateOrderAsync(Order order)
     {
+        // Create the order entity
         _context.Orders.Add(order);
+
+        // Create the event to be published
+        var orderEvent = new OrderCreatedEvent(
+            order.Id,
+            order.CustomerName,
+            order.ProductName,
+            order.Quantity,
+            order.UnitPrice,
+            order.Quantity * order.UnitPrice,
+            order.CreatedAtUtc
+        );
+
+        // Save the event to outbox table in same transaction
+        var outboxEvent = new OutboxEvent
+        {
+            Id = Guid.NewGuid(),
+            EventType = "OrderCreated",
+            Payload = JsonSerializer.Serialize(orderEvent),
+            CreatedAt = DateTime.UtcNow,
+            IsPublished = false,
+            RetryCount = 0
+        };
+        _context.OutboxEvents.Add(outboxEvent);
+
+        // Save both in a single transaction
         await _context.SaveChangesAsync();
         return order;
     }

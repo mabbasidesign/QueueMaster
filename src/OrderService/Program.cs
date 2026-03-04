@@ -21,6 +21,7 @@ builder.Services.AddScoped<IOrderService, OrderService.Services.OrderService>();
 // Register Service Bus
 builder.Services.Configure<ServiceBusOptions>(builder.Configuration.GetSection("ServiceBus"));
 builder.Services.AddScoped<IServiceBusPublisher, ServiceBusPublisher>();
+builder.Services.AddHostedService<OutboxPublisher>();
 
 var app = builder.Build();
 
@@ -71,7 +72,7 @@ app.MapGet("/api/orders/{id}", async (int id, IOrderService orderService) =>
 .WithName("GetOrderById")
 .WithOpenApi();
 
-app.MapPost("/api/orders", async (CreateOrderRequest request, IOrderService orderService, IServiceBusPublisher publisher) =>
+app.MapPost("/api/orders", async (CreateOrderRequest request, IOrderService orderService) =>
 {
     var order = new OrderService.Models.Order
     {
@@ -83,18 +84,9 @@ app.MapPost("/api/orders", async (CreateOrderRequest request, IOrderService orde
         CreatedAtUtc = DateTime.UtcNow
     };
     
+    // CreateOrderAsync now saves both Order and OutboxEvent in same transaction
     var created = await orderService.CreateOrderAsync(order);
     var totalAmount = created.Quantity * created.UnitPrice;
-    
-    // Publish OrderCreated event to Service Bus
-    await publisher.PublishOrderCreatedAsync(
-        created.Id,
-        created.CustomerName,
-        created.ProductName,
-        created.Quantity,
-        created.UnitPrice,
-        totalAmount,
-        created.CreatedAtUtc);
     
     var response = new OrderResponse(
         created.Id,
