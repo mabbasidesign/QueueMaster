@@ -3,6 +3,13 @@ metadata description = 'QueueMaster infrastructure'
 param location string = resourceGroup().location
 param environment string = 'dev'
 
+module appinsights 'appinsights.bicep' = {
+  params: {
+    location: location
+    appInsightsName: 'appi-queuemaster-${environment}'
+  }
+}
+
 module servicebus 'servicebus.bicep' = {
   params: {
     location: location
@@ -11,6 +18,8 @@ module servicebus 'servicebus.bicep' = {
   }
 }
 
+@secure()
+output applicationInsightsConnectionString string = appinsights.outputs.connectionString
 output namespaceFqdn string = servicebus.outputs.namespaceFqdn
 output queueName string = servicebus.outputs.queueName
 @secure()

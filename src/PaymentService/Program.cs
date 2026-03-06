@@ -6,6 +6,8 @@ using PaymentService.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddApplicationInsightsTelemetry();
+
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
