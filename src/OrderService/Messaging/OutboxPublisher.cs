@@ -61,7 +61,15 @@ public class OutboxPublisher : BackgroundService
             try
             {
                 // Publish to Service Bus
-                await publisher.PublishAsync(outboxEvent.EventType, outboxEvent.Payload, cancellationToken);
+                var published = await publisher.PublishAsync(outboxEvent.EventType, outboxEvent.Payload, cancellationToken);
+
+                if (!published)
+                {
+                    _logger.LogInformation(
+                        "Service Bus publish skipped for outbox event {EventId}; event remains unpublished",
+                        outboxEvent.Id);
+                    continue;
+                }
 
                 // Mark as published
                 outboxEvent.IsPublished = true;

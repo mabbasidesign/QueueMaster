@@ -63,7 +63,7 @@ public class ServiceBusConsumer : BackgroundService, IServiceBusConsumer
     {
         try
         {
-            if (!string.IsNullOrEmpty(_options.FullyQualifiedNamespace))
+            if (_options.UseManagedIdentity && !string.IsNullOrEmpty(_options.FullyQualifiedNamespace))
             {
                 _client = new ServiceBusClient(_options.FullyQualifiedNamespace, new Azure.Identity.DefaultAzureCredential());
             }
@@ -114,8 +114,8 @@ public class ServiceBusConsumer : BackgroundService, IServiceBusConsumer
                 OrderId = orderEvent.OrderId,
                 Amount = orderEvent.TotalAmount,
                 Currency = "USD",
-                Method = "Pending",
-                Status = "Pending",
+                Method = "Auto",
+                Status = "Processing",
                 CreatedAtUtc = DateTime.UtcNow
             };
 

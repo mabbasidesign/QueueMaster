@@ -28,7 +28,7 @@ public class ServiceBusPublisher : IServiceBusPublisher
     {
         try
         {
-            if (!string.IsNullOrEmpty(_options.FullyQualifiedNamespace))
+            if (_options.UseManagedIdentity && !string.IsNullOrEmpty(_options.FullyQualifiedNamespace))
             {
                 _client = new ServiceBusClient(_options.FullyQualifiedNamespace, new Azure.Identity.DefaultAzureCredential());
             }
@@ -89,12 +89,12 @@ public class ServiceBusPublisher : IServiceBusPublisher
         }
     }
 
-    public async Task PublishAsync(string eventType, string jsonPayload, CancellationToken cancellationToken = default)
+    public async Task<bool> PublishAsync(string eventType, string jsonPayload, CancellationToken cancellationToken = default)
     {
         if (!_options.Enabled || _sender is null)
         {
             _logger.LogInformation($"Service Bus disabled, skipping publish for event type {eventType}");
-            return;
+            return false;
         }
 
         try
@@ -108,6 +108,7 @@ public class ServiceBusPublisher : IServiceBusPublisher
 
             await _sender.SendMessageAsync(message, cancellationToken);
             _logger.LogInformation($"Published {eventType} event to Service Bus");
+            return true;
         }
         catch (Exception ex)
         {

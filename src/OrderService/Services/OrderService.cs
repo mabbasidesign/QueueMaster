@@ -27,10 +27,12 @@ public class OrderService : IOrderService
 
     public async Task<Order> CreateOrderAsync(Order order)
     {
-        // Create the order entity
-        _context.Orders.Add(order);
+        await using var transaction = await _context.Database.BeginTransactionAsync();
 
-        // Create the event to be published
+        // Persist order first so the DB-generated Id is available in the event payload.
+        _context.Orders.Add(order);
+        await _context.SaveChangesAsync();
+
         var orderEvent = new OrderCreatedEvent(
             order.Id,
             order.CustomerName,
@@ -41,7 +43,6 @@ public class OrderService : IOrderService
             order.CreatedAtUtc
         );
 
-        // Save the event to outbox table in same transaction
         var outboxEvent = new OutboxEvent
         {
             Id = Guid.NewGuid(),
@@ -51,10 +52,11 @@ public class OrderService : IOrderService
             IsPublished = false,
             RetryCount = 0
         };
-        _context.OutboxEvents.Add(outboxEvent);
 
-        // Save both in a single transaction
+        _context.OutboxEvents.Add(outboxEvent);
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+
         return order;
     }
 
