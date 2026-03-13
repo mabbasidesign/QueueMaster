@@ -37,6 +37,10 @@ bld/
 .env.local
 .env.*.local
 
+# Local development app settings (may contain secrets)
+src/OrderService/appsettings.Development.json
+src/PaymentService/appsettings.Development.json
+
 # Database files
 *.mdf
 *.ldf
