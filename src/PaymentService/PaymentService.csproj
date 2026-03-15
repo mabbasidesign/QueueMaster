@@ -4,6 +4,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>QueueMaster-PaymentService-5bdf8d87-4d26-48e7-8446-77153e5f4b2c</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
