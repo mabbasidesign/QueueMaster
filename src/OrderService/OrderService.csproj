@@ -4,6 +4,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>QueueMaster-OrderService-2e2eaef5-51f2-4b15-b80c-a5f35f9abf65</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
