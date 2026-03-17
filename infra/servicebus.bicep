@@ -19,7 +19,7 @@ resource queue 'Microsoft.ServiceBus/namespaces/queues@2021-11-01' = {
   properties: {
     maxDeliveryCount: 5
     lockDuration: 'PT5M'
-    enableDeadLetteringOnMessageExpiration: true
+    deadLetteringOnMessageExpiration: true
   }
 }
 
@@ -35,4 +35,4 @@ output namespaceName string = namespace.name
 output namespaceFqdn string = '${namespace.name}.servicebus.windows.net'
 output queueName string = queue.name
 @secure()
-output connectionString string = listKeys(authRule.id, authRule.apiVersion).primaryConnectionString
+output connectionString string = authRule.listKeys().primaryConnectionString

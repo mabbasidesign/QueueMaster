@@ -37,6 +37,18 @@ resource plan 'Microsoft.Web/serverfarms@2023-01-01' = {
   }
 }
 
+// Log Analytics workspace required as a diagnostics data sink
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
+  name: 'azlaw${take(resourceToken, 17)}'
+  location: location
+  properties: {
+    retentionInDays: 30
+    sku: {
+      name: 'PerGB2018'
+    }
+  }
+}
+
 // Function App
 resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
   name: 'azfn${take(resourceToken, 18)}'
@@ -142,6 +154,7 @@ resource diagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' 
   name: 'diag-${functionApp.name}'
   scope: functionApp
   properties: {
+    workspaceId: logAnalytics.id
     logs: [
       {
         category: 'FunctionAppLogs'
