@@ -2,6 +2,10 @@ metadata description = 'QueueMaster infrastructure'
 
 param location string = resourceGroup().location
 param environmentName string = 'dev'
+@secure()
+param notificationConnectionString string = ''
+param notificationSenderAddress string = ''
+param notificationRecipientAddress string = ''
 
 module appinsights 'appinsights.bicep' = {
   params: {
@@ -24,6 +28,9 @@ module notificationFunction 'functionapp.bicep' = {
     environmentName: environmentName
     serviceBusConnectionString: servicebus.outputs.connectionString
     appInsightsConnectionString: appinsights.outputs.connectionString
+    notificationConnectionString: notificationConnectionString
+    notificationSenderAddress: notificationSenderAddress
+    notificationRecipientAddress: notificationRecipientAddress
   }
 }
 

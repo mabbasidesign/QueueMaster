@@ -4,6 +4,10 @@ param location string
 param environmentName string
 param serviceBusConnectionString string
 param appInsightsConnectionString string
+@secure()
+param notificationConnectionString string = ''
+param notificationSenderAddress string = ''
+param notificationRecipientAddress string = ''
 
 var resourceToken = uniqueString(subscription().id, resourceGroup().id, location, environmentName)
 
@@ -88,6 +92,18 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'ServiceBusConnection'
           value: serviceBusConnectionString
+        }
+        {
+          name: 'Notification__ConnectionString'
+          value: notificationConnectionString
+        }
+        {
+          name: 'Notification__SenderAddress'
+          value: notificationSenderAddress
+        }
+        {
+          name: 'Notification__RecipientAddress'
+          value: notificationRecipientAddress
         }
       ]
     }

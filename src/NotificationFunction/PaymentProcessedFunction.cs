@@ -2,6 +2,7 @@ using System.Text.Json;
 using Azure.Messaging.ServiceBus;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
+using NotificationFunction.Notifications;
 
 namespace NotificationFunction;
 
@@ -17,10 +18,14 @@ public record OrderCreatedEvent(
 public class OrderCreatedFunction
 {
     private readonly ILogger<OrderCreatedFunction> _logger;
+    private readonly INotificationSender _notificationSender;
 
-    public OrderCreatedFunction(ILogger<OrderCreatedFunction> logger)
+    public OrderCreatedFunction(
+        ILogger<OrderCreatedFunction> logger,
+        INotificationSender notificationSender)
     {
         _logger = logger;
+        _notificationSender = notificationSender;
     }
 
     [Function(nameof(OrderCreatedFunction))]
@@ -46,7 +51,7 @@ public class OrderCreatedFunction
             "[EMAIL] Order created - Order: {OrderId}, Customer: {Customer}, Product: {Product}, Qty: {Quantity}, Total: {Total}",
             evt.OrderId, evt.CustomerName, evt.ProductName, evt.Quantity, evt.TotalAmount);
 
-        // TODO: plug in SendGrid or Azure Communication Services here
+        await _notificationSender.SendOrderCreatedAsync(evt, message.MessageId, CancellationToken.None);
         await messageActions.CompleteMessageAsync(message);
     }
 }
