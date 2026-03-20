@@ -63,8 +63,8 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
       netFrameworkVersion: 'v9.0'
       appSettings: [
         {
-          name: 'AzureWebJobsStorage__accountName'
-          value: storage.name
+          name: 'AzureWebJobsStorage'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${storage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
         }
         {
           name: 'FUNCTIONS_EXTENSION_VERSION'
@@ -96,17 +96,6 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         }
       ]
     }
-  }
-}
-
-// Role: Storage Blob Data Contributor — only permission the Function needs for host storage
-resource roleBlobContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storage.id, identity.id, 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
-  scope: storage
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
-    principalId: identity.properties.principalId
-    principalType: 'ServicePrincipal'
   }
 }
 

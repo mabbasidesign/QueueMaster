@@ -1,0 +1,86 @@
+name: Deploy Notification Function
+
+on:
+  workflow_dispatch:
+    inputs:
+      resourceGroup:
+        description: Azure resource group name
+        required: true
+        default: rg-queuemaster-dev
+  push:
+    branches:
+      - master
+    paths:
+      - src/NotificationFunction/**
+      - scripts/deploy-notification-function.ps1
+      - .github/workflows/deploy-notification-function.yml
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Resolve Resource Group
+        id: rg
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.resourceGroup }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=rg-queuemaster-dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build deployable package
+        run: dotnet publish src/NotificationFunction/NotificationFunction.csproj -c Release -o out/notification-function
+
+      - name: Zip package
+        run: |
+          cd out/notification-function
+          zip -r ../notification-function.zip .
+
+      - name: Resolve Function App name
+        id: app
+        shell: bash
+        run: |
+          APP_NAME=$(az resource list \
+            --resource-group "${{ steps.rg.outputs.value }}" \
+            --resource-type Microsoft.Web/sites \
+            --query "[?tags.'azd-service-name'=='notification-function'].name | [0]" -o tsv)
+
+          if [ -z "$APP_NAME" ]; then
+            echo "No Function App found with tag azd-service-name=notification-function in resource group ${{ steps.rg.outputs.value }}"
+            exit 1
+          fi
+
+          echo "value=$APP_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy package
+        run: |
+          az functionapp deployment source config-zip \
+            --name "${{ steps.app.outputs.value }}" \
+            --resource-group "${{ steps.rg.outputs.value }}" \
+            --src out/notification-function.zip
+
+      - name: Verify functions are discoverable
+        run: |
+          az functionapp function list \
+            --name "${{ steps.app.outputs.value }}" \
+            --resource-group "${{ steps.rg.outputs.value }}" \
+            --query "[].name" -o tsv
