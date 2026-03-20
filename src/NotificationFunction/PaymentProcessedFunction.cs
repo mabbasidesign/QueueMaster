@@ -30,7 +30,8 @@ public class OrderCreatedFunction
 
     [Function(nameof(OrderCreatedFunction))]
     public async Task Run(
-        [ServiceBusTrigger("order-created", Connection = "ServiceBusConnection")]
+        // [ServiceBusTrigger("order-created", Connection = "ServiceBusConnection")]
+        [ServiceBusTrigger("order-created-topic", "notification", Connection = "ServiceBusConnection")]
         ServiceBusReceivedMessage message,
         ServiceBusMessageActions messageActions)
     {

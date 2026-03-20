@@ -27,7 +27,10 @@ module servicebus 'servicebus.bicep' = {
   params: {
     location: location
     namespaceName: 'sb-queuemaster-${environmentName}'
-    queueName: 'order-created'
+    topicName: 'order-created-topic'
+    paymentSubscriptionName: 'payment'
+    notificationSubscriptionName: 'notification'
+    // queueName: 'order-created'
   }
 }
 
@@ -58,7 +61,10 @@ output RESOURCE_GROUP_ID string = resourceGroup().id
 @secure()
 output applicationInsightsConnectionString string = appinsights.outputs.connectionString
 output namespaceFqdn string = servicebus.outputs.namespaceFqdn
-output queueName string = servicebus.outputs.queueName
+// output queueName string = servicebus.outputs.queueName
+output topicName string = servicebus.outputs.topicName
+output paymentSubscriptionName string = servicebus.outputs.paymentSubscriptionName
+output notificationSubscriptionName string = servicebus.outputs.notificationSubscriptionName
 @secure()
 output serviceBusConnectionString string = servicebus.outputs.connectionString
 output communicationServiceName string = communicationEmail.outputs.communicationServiceName

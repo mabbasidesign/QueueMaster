@@ -42,8 +42,9 @@ public class ServiceBusPublisher : IServiceBusPublisher
                 return;
             }
 
-            _sender = _client.CreateSender(_options.QueueName);
-            _logger.LogInformation($"Service Bus client initialized for queue: {_options.QueueName}");
+            // _sender = _client.CreateSender(_options.QueueName);
+            _sender = _client.CreateSender(_options.TopicName);
+            _logger.LogInformation($"Service Bus client initialized for topic: {_options.TopicName}");
         }
         catch (Exception ex)
         {

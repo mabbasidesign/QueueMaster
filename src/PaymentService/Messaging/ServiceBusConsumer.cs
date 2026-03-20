@@ -82,8 +82,12 @@ public class ServiceBusConsumer : BackgroundService, IServiceBusConsumer
                 MaxConcurrentCalls = _options.MaxConcurrentCalls
             };
 
-            _processor = _client.CreateProcessor(_options.QueueName, options);
-            _logger.LogInformation($"Service Bus processor initialized for queue: {_options.QueueName}");
+            // _processor = _client.CreateProcessor(_options.QueueName, options);
+            _processor = _client.CreateProcessor(_options.TopicName, _options.SubscriptionName, options);
+            _logger.LogInformation(
+                "Service Bus processor initialized for topic: {TopicName}, subscription: {SubscriptionName}",
+                _options.TopicName,
+                _options.SubscriptionName);
         }
         catch (Exception ex)
         {
