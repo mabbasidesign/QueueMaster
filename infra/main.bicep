@@ -1,11 +1,20 @@
 metadata description = 'QueueMaster infrastructure'
 
 param location string = resourceGroup().location
-param environmentName string = 'dev'
-@secure()
-param notificationConnectionString string = ''
-param notificationSenderAddress string = ''
-param notificationRecipientAddress string = ''
+@description('Deployment location for Notification Function resources.')
+param functionLocation string
+param environmentName string
+@description('Comma-separated recipient emails for notifications.')
+param notificationRecipientAddresses string
+
+@description('Data location for ACS Communication and Email services.')
+param notificationDataLocation string
+
+@description('ACS sender username local-part (before @domain).')
+param notificationSenderUsername string
+
+@description('Display name used in outgoing notification emails.')
+param notificationSenderDisplayName string
 
 module appinsights 'appinsights.bicep' = {
   params: {
@@ -22,15 +31,26 @@ module servicebus 'servicebus.bicep' = {
   }
 }
 
-module notificationFunction 'functionapp.bicep' = {
+module communicationEmail 'communication-email.bicep' = {
   params: {
     location: location
     environmentName: environmentName
+    dataLocation: notificationDataLocation
+    senderUsername: notificationSenderUsername
+    senderDisplayName: notificationSenderDisplayName
+  }
+}
+
+module notificationFunction 'functionapp.bicep' = {
+  params: {
+    location: functionLocation
+    environmentName: environmentName
     serviceBusConnectionString: servicebus.outputs.connectionString
     appInsightsConnectionString: appinsights.outputs.connectionString
-    notificationConnectionString: notificationConnectionString
-    notificationSenderAddress: notificationSenderAddress
-    notificationRecipientAddress: notificationRecipientAddress
+    logAnalyticsWorkspaceId: appinsights.outputs.workspaceId
+    notificationConnectionString: communicationEmail.outputs.connectionString
+    notificationSenderAddress: communicationEmail.outputs.senderAddress
+    notificationRecipientAddresses: notificationRecipientAddresses
   }
 }
 
@@ -41,5 +61,8 @@ output namespaceFqdn string = servicebus.outputs.namespaceFqdn
 output queueName string = servicebus.outputs.queueName
 @secure()
 output serviceBusConnectionString string = servicebus.outputs.connectionString
+output communicationServiceName string = communicationEmail.outputs.communicationServiceName
+output emailServiceName string = communicationEmail.outputs.emailServiceName
+output notificationSenderAddress string = communicationEmail.outputs.senderAddress
 output functionAppName string = notificationFunction.outputs.functionAppName
 output functionAppHostname string = notificationFunction.outputs.functionAppHostname

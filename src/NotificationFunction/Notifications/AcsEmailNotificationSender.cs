@@ -20,11 +20,13 @@ public class AcsEmailNotificationSender : INotificationSender
 
     public async Task SendOrderCreatedAsync(OrderCreatedEvent orderCreatedEvent, string messageId, CancellationToken cancellationToken)
     {
+        var recipients = ResolveRecipients();
+
         if (string.IsNullOrWhiteSpace(_options.ConnectionString) ||
             string.IsNullOrWhiteSpace(_options.SenderAddress) ||
-            string.IsNullOrWhiteSpace(_options.RecipientAddress))
+            recipients.Count == 0)
         {
-            throw new InvalidOperationException("Notification email settings are incomplete. Configure Notification:ConnectionString, Notification:SenderAddress, and Notification:RecipientAddress.");
+            throw new InvalidOperationException("Notification email settings are incomplete. Configure Notification:ConnectionString, Notification:SenderAddress, and Notification:RecipientAddresses (or Notification:RecipientAddress for legacy single recipient).");
         }
 
         var client = new EmailClient(_options.ConnectionString);
@@ -60,9 +62,7 @@ public class AcsEmailNotificationSender : INotificationSender
                 PlainText = plainTextContent,
                 Html = htmlContent
             },
-            recipients: new EmailRecipients([
-                new EmailAddress(_options.RecipientAddress)
-            ]));
+            recipients: new EmailRecipients(recipients));
 
         var operation = await client.SendAsync(WaitUntil.Completed, message, cancellationToken);
 
@@ -71,5 +71,24 @@ public class AcsEmailNotificationSender : INotificationSender
             orderCreatedEvent.OrderId,
             messageId,
             operation.Value.Status);
+    }
+
+    private List<EmailAddress> ResolveRecipients()
+    {
+        var raw = string.IsNullOrWhiteSpace(_options.RecipientAddresses)
+            ? _options.RecipientAddress
+            : _options.RecipientAddresses;
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return [];
+        }
+
+        var entries = raw
+            .Split([',', ';', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return entries.Select(address => new EmailAddress(address)).ToList();
     }
 }
