@@ -1,4 +1,4 @@
-name: Deploy Notification Function
+name: Deploy Notification Function (Disabled)
 
 on:
   workflow_dispatch:
@@ -21,6 +21,7 @@ permissions:
 
 jobs:
   deploy:
+    if: ${{ false }}
     runs-on: ubuntu-latest
 
     steps:
