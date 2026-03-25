@@ -18,7 +18,9 @@ bld/
 .vs/
 
 # Visual Studio Code
-.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
 *.code-workspace
 
 # Rider

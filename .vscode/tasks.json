@@ -1,0 +1,109 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "func: host start (debug)",
+			"type": "shell",
+			"command": "func host start",
+			"options": {
+				"cwd": "${workspaceFolder}/src/NotificationFunction"
+			},
+			"isBackground": true,
+			"problemMatcher": {
+				"owner": "azureFunctions",
+				"pattern": {
+					"regexp": "^(.*)$",
+					"message": 1
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": ".*Azure Functions Core Tools.*|.*Worker process started and initialized.*",
+					"endsPattern": ".*Host lock lease acquired by instance ID.*|.*Job host started.*"
+				}
+			}
+		},
+		{
+			"label": "build OrderService",
+			"command": "dotnet",
+			"type": "shell",
+			"args": [
+				"build",
+				"${workspaceFolder}/src/OrderService/OrderService.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "git status short",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"status",
+				"-sb"
+			]
+		},
+		{
+			"label": "git status",
+			"type": "shell",
+			"command": "git status -sb"
+		},
+		{
+			"label": "what-if infra deploy",
+			"type": "shell",
+			"command": "az",
+			"args": [
+				"deployment",
+				"group",
+				"what-if",
+				"--name",
+				"qm-preview-20260319",
+				"--resource-group",
+				"rg-queuemaster-dev",
+				"--template-file",
+				"infra/main.bicep",
+				"--parameters",
+				"infra/main.bicepparam"
+			]
+		},
+		{
+			"label": "deploy main bicep incremental",
+			"type": "shell",
+			"command": "az",
+			"args": [
+				"deployment",
+				"group",
+				"create",
+				"--name",
+				"qm-email-redeploy-20260319",
+				"--resource-group",
+				"rg-queuemaster-dev",
+				"--template-file",
+				"infra/main.bicep",
+				"--parameters",
+				"infra/main.bicepparam",
+				"--mode",
+				"Incremental"
+			]
+		},
+		{
+			"label": "deploy main bicep incremental (copilot)",
+			"type": "shell",
+			"command": "az",
+			"args": [
+				"deployment",
+				"group",
+				"create",
+				"--name",
+				"qm-email-redeploy-20260319",
+				"--resource-group",
+				"rg-queuemaster-dev",
+				"--template-file",
+				"infra/main.bicep",
+				"--parameters",
+				"infra/main.bicepparam",
+				"--mode",
+				"Incremental"
+			],
+			"isBackground": false
+		}
+	]
+}

@@ -1,0 +1,38 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug NotificationFunction",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:azureFunctions.pickProcess}",
+      "preLaunchTask": "func: host start (debug)",
+      "justMyCode": false
+    },
+    {
+      "name": "Attach to NotificationFunction (already running)",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:azureFunctions.pickProcess}",
+      "justMyCode": false
+    },
+    {
+      "name": "Debug OrderService (http)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build OrderService",
+      "program": "${workspaceFolder}/src/OrderService/bin/Debug/net9.0/OrderService.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/OrderService",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5000"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+      }
+    }
+  ]
+}
