@@ -5,6 +5,7 @@ param environmentName string
 param dataLocation string = 'United States'
 param senderUsername string = 'donotreply'
 param senderDisplayName string = 'QueueMaster Notifications'
+param logAnalyticsWorkspaceId string
 
 var resourceToken = uniqueString(subscription().id, resourceGroup().id, location, environmentName)
 var communicationServiceName = 'acsqm${take(resourceToken, 16)}'
@@ -44,6 +45,34 @@ resource communicationService 'Microsoft.Communication/communicationServices@202
   properties: {
     dataLocation: dataLocation
     linkedDomains: [managedDomain.id]
+  }
+}
+
+resource emailServiceDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag-${emailService.name}'
+  scope: emailService
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+      }
+    ]
+  }
+}
+
+resource communicationServiceDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag-${communicationService.name}'
+  scope: communicationService
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+      }
+    ]
   }
 }
 

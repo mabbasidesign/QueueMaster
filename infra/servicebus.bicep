@@ -5,6 +5,7 @@ param namespaceName string
 param topicName string
 param paymentSubscriptionName string
 param notificationSubscriptionName string
+param logAnalyticsWorkspaceId string
 
 // param queueName string
 
@@ -62,6 +63,26 @@ resource authRule 'Microsoft.ServiceBus/namespaces/authorizationRules@2021-11-01
   name: 'RootManageSharedAccessKey'
   properties: {
     rights: ['Listen', 'Manage', 'Send']
+  }
+}
+
+resource namespaceDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag-${namespace.name}'
+  scope: namespace
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
   }
 }
 

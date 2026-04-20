@@ -30,6 +30,7 @@ module servicebus 'servicebus.bicep' = {
     topicName: 'order-created-topic'
     paymentSubscriptionName: 'payment'
     notificationSubscriptionName: 'notification'
+    logAnalyticsWorkspaceId: appinsights.outputs.workspaceId
     // queueName: 'order-created'
   }
 }
@@ -41,6 +42,7 @@ module communicationEmail 'communication-email.bicep' = {
     dataLocation: notificationDataLocation
     senderUsername: notificationSenderUsername
     senderDisplayName: notificationSenderDisplayName
+    logAnalyticsWorkspaceId: appinsights.outputs.workspaceId
   }
 }
 
