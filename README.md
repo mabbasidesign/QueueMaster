@@ -1,261 +1,189 @@
 # QueueMaster
 
-> Enterprise-grade cloud-native microservices platform built with .NET 8 and Docker, demonstrating async messaging with Azure Service Bus, event-driven architecture, and scalable API design.
+QueueMaster is an event-driven microservices sample built on .NET 9, Azure Service Bus, Azure Functions, and Bicep infrastructure.
 
-## 🎯 Overview
+## Overview
 
-QueueMaster is a modern microservices platform showcasing:
-- **Async Communication** - Azure Service Bus (Queues & Topics)
-- **Minimal APIs** - Clean, performant .NET 8 endpoints
-- **Cloud-Native** - Designed for Azure Container Apps deployment
-- **Event-Driven** - Decoupled services with pub/sub patterns
-- **Production-Ready** - Health checks, logging, error handling
+The solution includes three core services:
 
-## 🏗️ Architecture
+1. OrderService: Minimal API for order CRUD operations, with an outbox publisher for reliable event publishing.
+2. PaymentService: Minimal API plus background Service Bus consumer for processing order events.
+3. NotificationFunction: Azure Functions isolated worker that consumes order events and sends email notifications through Azure Communication Services Email.
 
-```
-┌─────────────────────────────────────┐
-│      Order Service (REST API)       │
-│  - Create, Read, Update, Delete     │
-│  - Publishes to Service Bus Queue   │
-└────────────┬────────────────────────┘
-             │
-             ▼
-      ┌──────────────────┐
-      │ Azure Service    │
-      │      Bus         │
-      │  - Queue: orders │
-      │  - Topic: events │
-      └──────────┬───────┘
-             │
-             ▼
-┌─────────────────────────────────────┐
-│   Payment Service (Processor)       │
-│  - Listens to queue messages        │
-│  - Processes asynchronously         │
-│  - Publishes to topic               │
-└─────────────────────────────────────┘
-```
+## Architecture
 
-## 📦 Services
+Flow summary:
 
-### Order Service
-**Minimal Web API** serving order operations
-- `POST /api/v1/orders` - Create order
-- `GET /api/v1/orders` - List all orders
-- `GET /api/v1/orders/{id}` - Get order details
-- `PUT /api/v1/orders/{id}` - Update order
-- `DELETE /api/v1/orders/{id}` - Delete order
+1. Client calls OrderService HTTP endpoints.
+2. OrderService writes order and outbox records.
+3. Outbox publisher pushes OrderCreated events to Service Bus topic order-created-topic.
+4. PaymentService consumes from subscription payment.
+5. NotificationFunction consumes from subscription notification and sends email.
 
-**Features:**
-- ✅ Swagger/OpenAPI documentation
-- ✅ Async request handling
-- ✅ Error handling
+## Tech Stack
 
-### Payment Service
-**Background message processor**
-- Consumes order messages from Service Bus
-- Processes payments asynchronously
-- Publishes completion events
-- (In development)
+- .NET 9
+- ASP.NET Core Minimal APIs
+- Azure Functions v4 (dotnet-isolated)
+- Azure Service Bus
+- Azure Communication Services Email
+- SQL Server (EF Core)
+- Azure Application Insights
+- Bicep infrastructure modules
 
-## 🚀 Quick Start
+## Repository Layout
 
-### Prerequisites
-- .NET 8.0 SDK
-- Docker & Docker Compose (optional)
-- Git
+- QueueMaster.sln
+- src/OrderService
+- src/PaymentService
+- src/NotificationFunction
+- infra
+- scripts
 
-### Local Development
+## Prerequisites
+
+- .NET SDK 9.0+
+- Azure Functions Core Tools v4 for local function runtime
+- Azure CLI (for infrastructure deployment)
+- SQL Server LocalDB or SQL Server instance
+- Azure subscription and resource group for cloud deployment
+
+## Local Setup
+
+1. Clone the repository.
+2. Restore and build.
+3. Configure local settings for each service.
+4. Run services.
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/QueueMaster.git
+git clone https://github.com/mabbasidesign/QueueMaster.git
 cd QueueMaster
-
-# Restore dependencies
 dotnet restore
+dotnet build QueueMaster.sln
+```
 
-# Build solution
-dotnet build
+### Configuration
 
-# Run Order Service
+OrderService config is in src/OrderService/appsettings.json.
+
+- ConnectionStrings:DefaultConnection
+- ServiceBus section
+
+PaymentService config is in src/PaymentService/appsettings.json.
+
+- ConnectionStrings:DefaultConnection
+- ServiceBus section
+
+NotificationFunction local config is in src/NotificationFunction/local.settings.json.
+
+- ServiceBusConnection
+- Notification__ConnectionString
+- Notification__SenderAddress
+- Notification__RecipientAddresses
+
+Important: do not commit real secrets. Use placeholder values, environment variables, user secrets, or a secure secret store.
+
+## Run Locally
+
+Run each service in a separate terminal.
+
+OrderService:
+
+```bash
 cd src/OrderService
 dotnet run
+```
 
-# In another terminal, run Payment Service
+PaymentService:
+
+```bash
 cd src/PaymentService
 dotnet run
 ```
 
-### API Testing
+NotificationFunction:
 
 ```bash
-# Create an order
-curl -X POST http://localhost:5000/api/v1/orders \
-  -H "Content-Type: application/json" \
-  -d '{"customerName":"John Doe"}'
-
-# Get all orders
-curl http://localhost:5000/api/v1/orders
-
-# Access Swagger UI
-# Order Service: http://localhost:5000/swagger
-# Payment Service: http://localhost:5001/swagger
+cd src/NotificationFunction
+func host start
 ```
 
-## 📁 Project Structure
+Default local URLs:
 
-```
-QueueMaster/
-├── src/
-│   ├── OrderService/
-│   │   ├── Program.cs          # Minimal API endpoints
-│   │   ├── OrderService.csproj # Project file
-│   │   └── Properties/         # Launch settings
-│   │
-│   └── PaymentService/
-│       ├── Program.cs          # Service implementation
-│       └── PaymentService.csproj
-│
-├── .github/
-│   └── workflows/              # CI/CD pipelines
-│
-├── documentation/              # Architecture & guides
-├── .gitignore                  # Git ignore rules
-├── EventFlow.sln              # Solution file
-└── README.md                  # This file
-```
+- OrderService: http://localhost:5000
+- PaymentService: http://localhost:5243
+- NotificationFunction host: default Functions port unless overridden
 
-## 🛠️ Technology Stack
+Swagger is enabled in Development for the two web APIs:
 
-| Component | Technology |
-|-----------|-----------|
-| **Runtime** | .NET 8.0 |
-| **API Framework** | Minimal APIs |
-| **Async Messaging** | Azure Service Bus |
-| **Database** | Azure SQL (upcoming) |
-| **Containerization** | Docker |
-| **Orchestration** | Azure Container Apps |
-| **IaC** | Bicep |
-| **CI/CD** | GitHub Actions |
+- OrderService: /swagger
+- PaymentService: /swagger
 
-## 🔄 Communication Flow
+## API Endpoints
 
-**Order Creation:**
-1. Client sends POST request to Order Service
-2. Order is validated and stored
-3. Order event published to Service Bus Queue
-4. Payment Service consumes message asynchronously
-5. Payment processing begins
+OrderService:
 
-**Payment Completion:**
-1. Payment Service processes payment
-2. Publishes PaymentCompleted event to Topic
-3. Subscribers (e.g., notification service) consume event
-4. Order status updated
+- GET /api/orders
+- GET /api/orders/{id}
+- POST /api/orders
+- PUT /api/orders/{id}
+- DELETE /api/orders/{id}
 
-## ✨ Key Features
+PaymentService:
 
-- 📡 **Async Messaging** - Decoupled microservices
-- 🔄 **Retry Policies** - Automatic retry with backoff (coming soon)
-- 💾 **Persistence** - SQL Server integration (coming soon)
-- 📊 **Observability** - Application Insights (coming soon)
-- 🔐 **Security** - Managed Identity, Key Vault (coming soon)
-- 📈 **Scalability** - KEDA auto-scaling (coming soon)
-- 🚢 **Deployment** - Bicep infrastructure templates (coming soon)
+- GET /api/payments
+- GET /api/payments/{transactionId}
+- GET /api/payments/order/{orderId}
+- POST /api/payments
+- PUT /api/payments/{transactionId}
+- DELETE /api/payments/{transactionId}
 
-## 🌱 Roadmap
+## Infrastructure
 
-- [ ] Azure SQL database integration
-- [ ] Service Bus retry policies & DLQ handling
-- [ ] Application Insights telemetry
-- [ ] API authentication & authorization
-- [ ] Database migrations with EF Core
-- [ ] Health checks endpoints
-- [ ] Docker Compose local dev setup
-- [ ] Bicep infrastructure templates
-- [ ] GitHub Actions CI/CD pipeline
-- [ ] Unit & integration tests
-- [ ] Load testing scripts
+Infrastructure is modularized under infra:
 
-## 📚 Documentation
+- appinsights.bicep
+- servicebus.bicep
+- communication-email.bicep
+- functionapp.bicep
+- main.bicep
+- main.bicepparam
 
-- **[ARCHITECTURE.md](./documentation/ARCHITECTURE.md)** - System design details
-- **[SETUP.md](./documentation/SETUP.md)** - Installation & configuration
-- **[API.md](./documentation/API.md)** - API reference
-- **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Contribution guidelines
+The current templates provision diagnostics settings for Service Bus and Communication/Email resources into Log Analytics via the Application Insights workspace.
 
-## 🧪 Testing
+Example deployment command:
 
 ```bash
-# Run all tests
-dotnet test
-
-# Run with coverage
-dotnet test /p:CollectCoverage=true
-
-# Run specific service tests
-dotnet test src/OrderService.Tests
+az deployment group create \
+  --name qm-deploy-<timestamp> \
+  --resource-group <your-rg> \
+  --template-file infra/main.bicep \
+  --parameters infra/main.bicepparam \
+  --mode Incremental
 ```
 
-## 🐛 Troubleshooting
+## Build and Verification
 
-### Service won't start
 ```bash
-# Clear build artifacts
-dotnet clean
-
-# Rebuild
-dotnet build
+dotnet build QueueMaster.sln
 ```
 
-### Port already in use
+## Troubleshooting
+
+If build fails:
+
+```bash
+dotnet restore
+dotnet build QueueMaster.sln
+```
+
+If a port is in use on Windows:
+
 ```powershell
-# Find process using port 5000
 netstat -ano | findstr :5000
-
-# Kill process
 taskkill /PID <PID> /F
 ```
 
-## 📖 Learning Resources
+## Status
 
-This project demonstrates:
-- ✅ Minimal APIs in .NET 8
-- ✅ Async/await patterns
-- ✅ Microservices architecture
-- ✅ Message-driven design
-- ✅ Cloud-native development
-- ✅ OpenAPI/Swagger integration
-
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👨‍💻 Author
-
-**EventFlow Development Team**
-- Email: dev@eventflow.local
-- GitHub: [yourusername](https://github.com/yourusername)
-
-## 🙏 Acknowledgments
-
-- [Microsoft .NET Documentation](https://docs.microsoft.com/dotnet/)
-- [Azure Service Bus](https://azure.microsoft.com/services/service-bus/)
-- [Minimal APIs](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis)
-
----
-
-**Status:** 🟡 In Development
-
-Latest Update: March 2, 2026
+Active development.
