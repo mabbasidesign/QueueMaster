@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using PaymentService.Data;
 using PaymentService.Dtos;
 using PaymentService.Services;
@@ -11,6 +13,32 @@ builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+var tenantId = builder.Configuration["Authentication:TenantId"]
+    ?? throw new InvalidOperationException("Authentication:TenantId is required.");
+var audience = builder.Configuration["Authentication:Audience"]
+    ?? throw new InvalidOperationException("Authentication:Audience is required.");
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = $"https://login.microsoftonline.com/{tenantId}/v2.0";
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidAudience = audience,
+            ValidateLifetime = true,
+            RoleClaimType = "roles",
+            NameClaimType = "name"
+        };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
+    options.AddPolicy("UserOrAdmin", policy => policy.RequireRole("user", "admin"));
+});
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
@@ -35,6 +63,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Payment API Endpoints
 app.MapGet("/api/payments", async (IPaymentService paymentService) =>
@@ -51,6 +81,7 @@ app.MapGet("/api/payments", async (IPaymentService paymentService) =>
     return Results.Ok(response);
 })
 .WithName("GetAllPayments")
+.RequireAuthorization("UserOrAdmin")
 .WithOpenApi();
 
 app.MapGet("/api/payments/{transactionId:guid}", async (Guid transactionId, IPaymentService paymentService) =>
@@ -70,6 +101,7 @@ app.MapGet("/api/payments/{transactionId:guid}", async (Guid transactionId, IPay
     return Results.Ok(response);
 })
 .WithName("GetPaymentByTransactionId")
+.RequireAuthorization("UserOrAdmin")
 .WithOpenApi();
 
 app.MapGet("/api/payments/order/{orderId}", async (int orderId, IPaymentService paymentService) =>
@@ -86,6 +118,7 @@ app.MapGet("/api/payments/order/{orderId}", async (int orderId, IPaymentService 
     return Results.Ok(response);
 })
 .WithName("GetPaymentsByOrderId")
+.RequireAuthorization("UserOrAdmin")
 .WithOpenApi();
 
 app.MapPost("/api/payments", async (ProcessPaymentRequest request, IPaymentService paymentService) =>
@@ -113,6 +146,7 @@ app.MapPost("/api/payments", async (ProcessPaymentRequest request, IPaymentServi
     return Results.Created($"/api/payments/{response.TransactionId}", response);
 })
 .WithName("CreatePayment")
+.RequireAuthorization("AdminOnly")
 .WithOpenApi();
 
 app.MapPut("/api/payments/{transactionId:guid}", async (Guid transactionId, RefundPaymentRequest request, IPaymentService paymentService) =>
@@ -135,6 +169,7 @@ app.MapPut("/api/payments/{transactionId:guid}", async (Guid transactionId, Refu
     return Results.Ok(response);
 })
 .WithName("UpdatePayment")
+.RequireAuthorization("AdminOnly")
 .WithOpenApi();
 
 app.MapDelete("/api/payments/{transactionId:guid}", async (Guid transactionId, IPaymentService paymentService) =>
@@ -143,6 +178,7 @@ app.MapDelete("/api/payments/{transactionId:guid}", async (Guid transactionId, I
     return result ? Results.NoContent() : Results.NotFound();
 })
 .WithName("DeletePayment")
+.RequireAuthorization("AdminOnly")
 .WithOpenApi();
 
 app.Run();

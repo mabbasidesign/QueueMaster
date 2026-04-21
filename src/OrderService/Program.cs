@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using OrderService.Data;
 using OrderService.Dtos;
 using OrderService.Services;
@@ -11,6 +13,32 @@ builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+var tenantId = builder.Configuration["Authentication:TenantId"]
+    ?? throw new InvalidOperationException("Authentication:TenantId is required.");
+var audience = builder.Configuration["Authentication:Audience"]
+    ?? throw new InvalidOperationException("Authentication:Audience is required.");
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = $"https://login.microsoftonline.com/{tenantId}/v2.0";
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidAudience = audience,
+            ValidateLifetime = true,
+            RoleClaimType = "roles",
+            NameClaimType = "name"
+        };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
+    options.AddPolicy("UserOrAdmin", policy => policy.RequireRole("user", "admin"));
+});
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
@@ -35,6 +63,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Order API Endpoints
 app.MapGet("/api/orders", async (IOrderService orderService) =>
@@ -52,6 +82,7 @@ app.MapGet("/api/orders", async (IOrderService orderService) =>
     return Results.Ok(response);
 })
 .WithName("GetAllOrders")
+.RequireAuthorization("UserOrAdmin")
 .WithOpenApi();
 
 app.MapGet("/api/orders/{id}", async (int id, IOrderService orderService) =>
@@ -72,6 +103,7 @@ app.MapGet("/api/orders/{id}", async (int id, IOrderService orderService) =>
     return Results.Ok(response);
 })
 .WithName("GetOrderById")
+.RequireAuthorization("UserOrAdmin")
 .WithOpenApi();
 
 app.MapPost("/api/orders", async (CreateOrderRequest request, IOrderService orderService) =>
@@ -102,6 +134,7 @@ app.MapPost("/api/orders", async (CreateOrderRequest request, IOrderService orde
     return Results.Created($"/api/orders/{response.Id}", response);
 })
 .WithName("CreateOrder")
+.RequireAuthorization("AdminOnly")
 .WithOpenApi();
 
 app.MapPut("/api/orders/{id}", async (int id, UpdateOrderRequest request, IOrderService orderService) =>
@@ -129,6 +162,7 @@ app.MapPut("/api/orders/{id}", async (int id, UpdateOrderRequest request, IOrder
     return Results.Ok(response);
 })
 .WithName("UpdateOrder")
+.RequireAuthorization("AdminOnly")
 .WithOpenApi();
 
 app.MapDelete("/api/orders/{id}", async (int id, IOrderService orderService) =>
@@ -137,6 +171,7 @@ app.MapDelete("/api/orders/{id}", async (int id, IOrderService orderService) =>
     return result ? Results.NoContent() : Results.NotFound();
 })
 .WithName("DeleteOrder")
+.RequireAuthorization("AdminOnly")
 .WithOpenApi();
 
 app.Run();
