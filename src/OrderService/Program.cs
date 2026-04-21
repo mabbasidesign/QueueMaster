@@ -36,8 +36,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
-    options.AddPolicy("UserOrAdmin", policy => policy.RequireRole("user", "admin"));
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("QueueMaster.Admin"));
+    options.AddPolicy("UserOrAdmin", policy => policy.RequireRole("QueueMaster.User", "QueueMaster.Admin"));
 });
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")

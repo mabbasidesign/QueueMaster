@@ -22,21 +22,21 @@ Current values in this project:
 ## 2) Configure App Roles (Must Match API Code)
 
 QueueMaster backend currently checks these role values:
-1. `user`
-2. `admin`
+1. `QueueMaster.User`
+2. `QueueMaster.Admin`
 
 Create them in `QueueMaster-Api`:
 1. Open `App roles` -> `Create app role`.
 2. Add role:
    - Display name: `User`
    - Allowed member types: `Users/Groups`
-   - Value: `user`
+   - Value: `QueueMaster.User`
    - Description: `Standard user access`
    - Enabled: `Yes`
 3. Add role:
    - Display name: `Admin`
    - Allowed member types: `Users/Groups`
-   - Value: `admin`
+   - Value: `QueueMaster.Admin`
    - Description: `Administrative access`
    - Enabled: `Yes`
 
@@ -78,7 +78,7 @@ Tip: assign groups instead of individual users.
 QueueMaster APIs are already configured to validate Entra JWT tokens using:
 1. Tenant: `d02d2542-ac01-461b-b2ee-1c0e87591daa`
 2. Audience: `api://109ec5a0-c6bb-425f-ad2a-e532b14483b0`
-3. Roles checked: `user`, `admin`
+3. Roles checked: `QueueMaster.User`, `QueueMaster.Admin`
 
 Code references:
 1. `src/OrderService/Program.cs`
