@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using PaymentService.Data;
 using PaymentService.Dtos;
 using PaymentService.Services;
@@ -12,7 +13,33 @@ builder.Services.AddApplicationInsightsTelemetry();
 
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter JWT token in the format: Bearer {token}"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 var tenantId = builder.Configuration["Authentication:TenantId"]
     ?? throw new InvalidOperationException("Authentication:TenantId is required.");
@@ -36,8 +63,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
-    options.AddPolicy("UserOrAdmin", policy => policy.RequireRole("user", "admin"));
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("QueueMaster.Admin"));
+    options.AddPolicy("UserOrAdmin", policy => policy.RequireRole("QueueMaster.User", "QueueMaster.Admin"));
 });
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
