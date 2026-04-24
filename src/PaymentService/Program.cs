@@ -99,28 +99,20 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-if (app.Environment.IsDevelopment())
+app.MapGet("/health", (PaymentDbContext dbContext) =>
 {
-    app.MapGet("/api/debug/auth", (HttpContext httpContext) =>
+    try
     {
-        var user = httpContext.User;
-        var claims = user.Claims
-            .Select(c => new { c.Type, c.Value })
-            .ToArray();
-
-        return Results.Ok(new
-        {
-            IsAuthenticated = user.Identity?.IsAuthenticated ?? false,
-            Name = user.Identity?.Name,
-            IsAdmin = user.IsInRole("QueueMaster.Admin"),
-            IsUser = user.IsInRole("QueueMaster.User"),
-            Claims = claims
-        });
-    })
-    .RequireAuthorization()
-    .WithName("GetAuthDebugInfo")
-    .WithOpenApi();
-}
+        dbContext.Database.CanConnect();
+        return Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
+    }
+    catch
+    {
+        return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+    }
+})
+.WithName("Health")
+.WithOpenApi();
 
 // Payment API Endpoints
 app.MapGet("/api/payments", async (IPaymentService paymentService) =>
