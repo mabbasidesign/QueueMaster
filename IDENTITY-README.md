@@ -54,12 +54,16 @@ Create them in `QueueMaster-Api`:
    - User consent description: `Allows the app to access QueueMaster API.`
    - State: `Enabled`
 
+Important:
+1. Do not create a scope named `QueueMaster-Client`.
+2. `QueueMaster-Client` is the client app registration name, not an API scope.
+
 ## 4) Assign Roles to Users/Groups
 
 1. Go to Microsoft Entra ID -> Enterprise applications.
 2. Open enterprise app for `QueueMaster-Api`.
 3. Go to `Users and groups` -> `Add user/group`.
-4. Assign users/groups to `user` or `admin` role.
+4. Assign users/groups to `QueueMaster.User` or `QueueMaster.Admin` role.
 
 Tip: assign groups instead of individual users.
 
@@ -72,30 +76,71 @@ Tip: assign groups instead of individual users.
    - Postman callback: `https://oauth.pstmn.io/v1/callback`
 4. Under `API permissions` -> `Add a permission` -> `My APIs` -> `QueueMaster-Api` -> select scope `access_as_user`.
 5. Grant admin consent (if required by your tenant policy).
+6. Under `Certificates & secrets` -> create a `Client secret` for confidential client flows.
 
-## 6) Backend Configuration Already Wired
+Client secret note:
+1. In Postman, use the secret `Value` as `Client Secret`.
+2. Do not use `Secret ID` in Postman.
+3. Save the secret value immediately when created; it is only shown once.
+
+## 6) Postman OAuth2 Field Mapping (Recommended)
+
+Use Postman Authorization tab with OAuth 2.0 and fill fields as below.
+
+1. Type: `OAuth 2.0`
+2. Grant Type: `Authorization Code`
+3. Callback URL: `https://oauth.pstmn.io/v1/callback`
+4. Auth URL:
+   - `https://login.microsoftonline.com/d02d2542-ac01-461b-b2ee-1c0e87591daa/oauth2/v2.0/authorize`
+5. Access Token URL:
+   - `https://login.microsoftonline.com/d02d2542-ac01-461b-b2ee-1c0e87591daa/oauth2/v2.0/token`
+6. Client ID:
+   - `QueueMaster-Client` application (client) ID
+7. Client Secret:
+   - Client secret `Value` from `QueueMaster-Client` (not the `Secret ID`)
+8. Scope:
+   - `api://109ec5a0-c6bb-425f-ad2a-e532b14483b0/access_as_user openid profile offline_access`
+9. Client Authentication:
+   - `Send client credentials in body` (recommended for Postman with Entra v2)
+
+After token is generated:
+1. Open `access_token` in `jwt.ms` and verify claims.
+2. Confirm `aud` is `api://109ec5a0-c6bb-425f-ad2a-e532b14483b0`.
+3. Confirm `roles` contains `QueueMaster.Admin` or `QueueMaster.User`.
+4. In Swagger Authorize, paste only the raw JWT (no `Bearer ` prefix).
+
+## 7) Backend Configuration Already Wired
 
 QueueMaster APIs are already configured to validate Entra JWT tokens using:
 1. Tenant: `d02d2542-ac01-461b-b2ee-1c0e87591daa`
 2. Audience: `api://109ec5a0-c6bb-425f-ad2a-e532b14483b0`
 3. Roles checked: `QueueMaster.User`, `QueueMaster.Admin`
+4. Accepted issuers:
+   - `https://login.microsoftonline.com/{tenantId}/v2.0`
+   - `https://sts.windows.net/{tenantId}/`
+5. Role claim mapping is configured with `MapInboundClaims = false` so role checks use the JWT `roles` claim directly.
+
+Token guidance:
+1. Prefer acquiring v2 tokens (`/oauth2/v2.0/token`) for consistency.
+2. v1 issuer tokens are still accepted by current API validation settings.
 
 Code references:
 1. `src/OrderService/Program.cs`
 2. `src/PaymentService/Program.cs`
 
-## 7) Validation Checklist
+## 8) Validation Checklist
 
 1. Call API without token -> should return `401 Unauthorized`.
 2. Call API with valid token but no required role -> should return `403 Forbidden`.
-3. Call GET endpoint with `user` token -> should succeed.
-4. Call POST/PUT/DELETE with `admin` token -> should succeed.
+3. Call GET endpoint with token containing `QueueMaster.User` or `QueueMaster.Admin` -> should succeed.
+4. Call POST/PUT/DELETE with token containing `QueueMaster.Admin` -> should succeed.
 
-## 8) Common Problems
+## 9) Common Problems
 
 1. `401` due to wrong audience:
    - Ensure token `aud` is `api://109ec5a0-c6bb-425f-ad2a-e532b14483b0`.
 2. `403` due to missing role:
-   - Ensure token has `roles` claim with `user` or `admin`.
+   - Ensure token has `roles` claim with `QueueMaster.User` or `QueueMaster.Admin`.
+   - `403` means authentication succeeded, but authorization policy requirements were not met.
 3. Role updates not reflected:
    - Sign out and sign in again to refresh token claims.
