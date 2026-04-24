@@ -114,6 +114,29 @@ app.MapGet("/health", (PaymentDbContext dbContext) =>
 .WithName("Health")
 .WithOpenApi();
 
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/api/debug/auth", (HttpContext httpContext) =>
+    {
+        var user = httpContext.User;
+        var claims = user.Claims
+            .Select(c => new { c.Type, c.Value })
+            .ToArray();
+
+        return Results.Ok(new
+        {
+            IsAuthenticated = user.Identity?.IsAuthenticated ?? false,
+            Name = user.Identity?.Name,
+            IsAdmin = user.IsInRole("QueueMaster.Admin"),
+            IsUser = user.IsInRole("QueueMaster.User"),
+            Claims = claims
+        });
+    })
+    .RequireAuthorization()
+    .WithName("GetAuthDebugInfo")
+    .WithOpenApi();
+}
+
 // Payment API Endpoints
 app.MapGet("/api/payments", async (IPaymentService paymentService) =>
 {
