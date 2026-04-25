@@ -20,6 +20,19 @@ Flow summary:
 4. PaymentService consumes from subscription payment.
 5. NotificationFunction consumes from subscription notification and sends email.
 
+## Messaging Reliability
+
+QueueMaster uses an outbox pattern in OrderService and a Service Bus consumer in PaymentService.
+
+Current behavior summary:
+
+1. Producer reliability: OrderService stores events in an outbox table and retries publish in a background worker.
+2. Consumer retry: PaymentService uses manual completion. If processing fails, the message is not completed and is retried by Service Bus.
+3. Dead-letter queue: Invalid payloads are dead-lettered explicitly. Other repeated failures are dead-lettered by Service Bus after max delivery count.
+4. Idempotency: Not fully implemented yet on the consumer side, so duplicate deliveries can create duplicate payment records.
+
+For full details, see Service Bus guide: SERVICEBUS-README.md.
+
 ## Tech Stack
 
 - .NET 9
@@ -183,6 +196,12 @@ If a port is in use on Windows:
 netstat -ano | findstr :5000
 taskkill /PID <PID> /F
 ```
+
+Messaging issues:
+
+1. Check unpublished outbox events in OrderService database.
+2. Check Service Bus subscription dead-letter queue for poison messages.
+3. Review PaymentService logs for message processing exceptions.
 
 ## Status
 
