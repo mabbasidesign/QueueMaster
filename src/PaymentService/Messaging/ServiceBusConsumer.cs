@@ -107,6 +107,7 @@ public class ServiceBusConsumer : BackgroundService, IServiceBusConsumer
             if (orderEvent is null)
             {
                 _logger.LogError("Failed to deserialize OrderCreatedEvent");
+                // Bad message format -> send directly to DLQ (no retry).
                 await args.DeadLetterMessageAsync(args.Message, "InvalidMessageFormat", "Failed to deserialize message");
                 return;
             }
@@ -129,15 +130,15 @@ public class ServiceBusConsumer : BackgroundService, IServiceBusConsumer
             await paymentService.CreatePaymentAsync(payment);
             _logger.LogInformation($"Payment created for order {orderEvent.OrderId}");
 
-            // Complete the message
+            // Success -> complete message so there is no retry.
             await args.CompleteMessageAsync(args.Message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, $"Error processing message {args.Message.CorrelationId}");
             
-            // Let message be retried (don't complete)
-            // After MaxDeliveryCount retries, it will go to DLQ
+            // Processing failed -> do not complete, Service Bus will retry.
+            // Too many retries -> Service Bus moves it to DLQ.
         }
     }
 

@@ -7,6 +7,7 @@ public class OutboxPublisher : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<OutboxPublisher> _logger;
+    // Retry interval for unpublished events.
     private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(30);
 
     public OutboxPublisher(IServiceProvider serviceProvider, ILogger<OutboxPublisher> logger)
@@ -60,18 +61,20 @@ public class OutboxPublisher : BackgroundService
         {
             try
             {
-                // Publish to Service Bus
+                // Try to publish the event to Service Bus.
                 var published = await publisher.PublishAsync(outboxEvent.EventType, outboxEvent.Payload, cancellationToken);
 
                 if (!published)
                 {
+                    // Publish was skipped (for example Service Bus disabled).
+                    // Keep event as unpublished so it will be retried on next polling cycle.
                     _logger.LogInformation(
                         "Service Bus publish skipped for outbox event {EventId}; event remains unpublished",
                         outboxEvent.Id);
                     continue;
                 }
 
-                // Mark as published
+                // Publish succeeded -> mark published so it is not retried again.
                 outboxEvent.IsPublished = true;
                 outboxEvent.PublishedAt = DateTime.UtcNow;
                 
@@ -84,13 +87,15 @@ public class OutboxPublisher : BackgroundService
             {
                 _logger.LogError(ex, "Failed to publish outbox event {EventId}", outboxEvent.Id);
 
-                // Update retry count and last error
+                // Publish failed -> increment retry count and keep event unpublished.
+                // This means it will be retried in the next loop.
                 outboxEvent.RetryCount++;
                 outboxEvent.LastError = ex.Message;
                 
                 await context.SaveChangesAsync(cancellationToken);
 
-                // For now, continue to next event. Consider implementing max retry logic
+                // No DLQ here because this is producer/outbox side, not consumer side.
+                // After 5+ failures we currently only log warning and keep retrying.
                 if (outboxEvent.RetryCount >= 5)
                 {
                     _logger.LogWarning("Outbox event {EventId} has exceeded max retry count", outboxEvent.Id);
