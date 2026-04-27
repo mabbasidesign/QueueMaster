@@ -1,6 +1,6 @@
 # QueueMaster Service Bus Guide
 
-This document explains QueueMaster messaging behavior, including retry, dead-lettering, outbox handling, and idempotency gaps.
+This document explains QueueMaster messaging behavior, including retry, dead-lettering, outbox handling, and consumer idempotency.
 
 ## Components
 
@@ -16,7 +16,9 @@ This document explains QueueMaster messaging behavior, including retry, dead-let
 2. OutboxPublisher polls unpublished events every 30 seconds.
 3. Publisher sends event to Service Bus topic.
 4. On successful publish, event is marked IsPublished = true.
-5. PaymentService consumer reads from subscription and creates payment record.
+5. PaymentService consumer checks idempotency key before processing.
+6. If not processed before, consumer creates payment and stores processed message ID.
+7. If duplicate, consumer skips processing and completes message safely.
 
 ## Error Handling Today
 
@@ -31,9 +33,11 @@ This document explains QueueMaster messaging behavior, including retry, dead-let
 
 1. Consumer uses AutoCompleteMessages = false.
 2. If payload cannot be deserialized, message is dead-lettered explicitly.
-3. If processing throws exception, message is not completed.
-4. Service Bus retries delivery automatically.
-5. After entity MaxDeliveryCount is exceeded, Service Bus moves message to DLQ.
+3. If message ID already exists in ProcessedMessages, consumer skips duplicate and completes message.
+4. If concurrent duplicate processing hits unique key, consumer catches duplicate-key DB exception and completes message.
+5. If processing throws exception, message is not completed.
+6. Service Bus retries delivery automatically.
+7. After entity MaxDeliveryCount is exceeded, Service Bus moves message to DLQ.
 
 ## What Happens If Message Fails
 
@@ -52,31 +56,41 @@ This document explains QueueMaster messaging behavior, including retry, dead-let
 
 ## Idempotency Status
 
-Current status: partial, not complete.
+Current status: implemented on PaymentService consumer.
 
 1. Outbox prevents losing publish intent from producer side.
-2. Payment consumer does not currently enforce idempotency key.
-3. Duplicate delivery can create duplicate payment rows.
+2. Consumer uses MessageId as primary idempotency key.
+3. If MessageId is missing, consumer falls back to OrderId-based key format: order-<OrderId>.
+4. Consumer stores processed IDs in ProcessedMessages table.
+5. ProcessedMessages.MessageId is a primary key (unique), so duplicates are rejected at DB level.
+6. Duplicate deliveries are completed safely instead of re-processing.
 
 ## Hardening
 
-1. Add idempotency key in consumer:
-   - Use MessageId or business key like OrderId
-   - Store processed message IDs
-   - Reject duplicates safely
-
-2. Add outbox max retry policy:
+1. Add outbox max retry policy:
    - Stop retrying after N attempts
    - Move failed events to a separate terminal state
    - Alert operations
 
-3. Improve poison message handling:
+2. Improve poison message handling:
    - Dead-letter repeated business failures explicitly with reason
    - Add runbook for DLQ replay
 
-4. Add observability:
+3. Add observability:
    - Track publish failures, consumer failures, DLQ count, and retry counts
    - Alert on DLQ growth and high retry rates
+
+## Database Changes for Idempotency
+
+Migration added in PaymentService:
+
+1. 20260427162431_AddProcessedMessagesIdempotency
+
+Schema added:
+
+1. Table: ProcessedMessages
+2. Primary key: MessageId
+3. Index: IX_ProcessedMessages_OrderId
 
 ## Configuration
 

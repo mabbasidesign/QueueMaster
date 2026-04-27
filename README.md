@@ -29,7 +29,7 @@ Current behavior summary:
 1. Producer reliability: OrderService stores events in an outbox table and retries publish in a background worker.
 2. Consumer retry: PaymentService uses manual completion. If processing fails, the message is not completed and is retried by Service Bus.
 3. Dead-letter queue: Invalid payloads are dead-lettered explicitly. Other repeated failures are dead-lettered by Service Bus after max delivery count.
-4. Idempotency: Not fully implemented yet on the consumer side, so duplicate deliveries can create duplicate payment records.
+4. Idempotency: PaymentService stores processed message IDs and skips duplicate deliveries safely. MessageId is used as the primary idempotency key, with an OrderId-based fallback when MessageId is missing.
 
 For full details, see Service Bus guide: SERVICEBUS-README.md.
 
@@ -201,7 +201,8 @@ Messaging issues:
 
 1. Check unpublished outbox events in OrderService database.
 2. Check Service Bus subscription dead-letter queue for poison messages.
-3. Review PaymentService logs for message processing exceptions.
+3. Check ProcessedMessages table in PaymentService database to confirm duplicate detection state.
+4. Review PaymentService logs for message processing exceptions.
 
 ## Status
 
