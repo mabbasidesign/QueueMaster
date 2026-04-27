@@ -10,6 +10,7 @@ public class PaymentDbContext : DbContext
     }
 
     public DbSet<Payment> Payments { get; set; }
+    public DbSet<ProcessedMessage> ProcessedMessages { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -95,6 +96,20 @@ public class PaymentDbContext : DbContext
                     CreatedAtUtc = DateTime.UtcNow.AddDays(-10)
                 }
             );
+        });
+
+        modelBuilder.Entity<ProcessedMessage>(entity =>
+        {
+            entity.HasKey(e => e.MessageId);
+
+            entity.Property(e => e.MessageId)
+                .HasMaxLength(256)
+                .IsRequired();
+
+            entity.Property(e => e.ProcessedAtUtc)
+                .IsRequired();
+
+            entity.HasIndex(e => e.OrderId);
         });
     }
 }

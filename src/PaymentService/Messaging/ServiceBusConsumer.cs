@@ -2,9 +2,13 @@ using Azure.Messaging.ServiceBus;
 using System.Text.Json;
 using PaymentService.Events;
 using PaymentService.Services;
+using PaymentService.Data;
+using PaymentService.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Hosting;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 
 namespace PaymentService.Messaging;
 
@@ -101,7 +105,7 @@ public class ServiceBusConsumer : BackgroundService, IServiceBusConsumer
         try
         {
             var messageBody = args.Message.Body.ToString();
-            _logger.LogInformation($"Processing message: {args.Message.CorrelationId}");
+            _logger.LogInformation("Processing message with CorrelationId={CorrelationId}", args.Message.CorrelationId);
 
             var orderEvent = JsonSerializer.Deserialize<OrderCreatedEvent>(messageBody);
             if (orderEvent is null)
@@ -112,34 +116,88 @@ public class ServiceBusConsumer : BackgroundService, IServiceBusConsumer
                 return;
             }
 
-            // Create payment for the order
-            var payment = new PaymentService.Models.Payment
-            {
-                TransactionId = Guid.NewGuid(),
-                OrderId = orderEvent.OrderId,
-                Amount = orderEvent.TotalAmount,
-                Currency = "USD",
-                Method = "Auto",
-                Status = "Processing",
-                CreatedAtUtc = DateTime.UtcNow
-            };
-
             using var scope = _serviceProvider.CreateScope();
-            var paymentService = scope.ServiceProvider.GetRequiredService<IPaymentService>();
+            var db = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
 
-            await paymentService.CreatePaymentAsync(payment);
-            _logger.LogInformation($"Payment created for order {orderEvent.OrderId}");
+            var idempotencyKey = GetIdempotencyKey(args.Message.MessageId, orderEvent.OrderId);
+
+            var alreadyProcessed = await IsAlreadyProcessedAsync(db, idempotencyKey);
+
+            if (alreadyProcessed)
+            {
+                _logger.LogWarning(
+                    "Duplicate message detected. MessageId={MessageId}, OrderId={OrderId}. Skipping.",
+                    idempotencyKey,
+                    orderEvent.OrderId);
+                await args.CompleteMessageAsync(args.Message);
+                return;
+            }
+
+            var payment = CreatePayment(orderEvent);
+
+            db.Payments.Add(payment);
+            db.ProcessedMessages.Add(new ProcessedMessage
+            {
+                MessageId = idempotencyKey,
+                OrderId = orderEvent.OrderId,
+                ProcessedAtUtc = DateTime.UtcNow
+            });
+
+            await db.SaveChangesAsync();
+            _logger.LogInformation("Payment created for OrderId={OrderId}", orderEvent.OrderId);
 
             // Success -> complete message so there is no retry.
             await args.CompleteMessageAsync(args.Message);
         }
+        catch (DbUpdateException ex) when (IsDuplicateMessageIdViolation(ex))
+        {
+            // Another concurrent handler already processed this same message.
+            _logger.LogWarning(
+                "Duplicate message detected by unique key. MessageId={MessageId}. Skipping.",
+                args.Message.MessageId);
+            await args.CompleteMessageAsync(args.Message);
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error processing message {args.Message.CorrelationId}");
+            _logger.LogError(ex, "Error processing message with CorrelationId={CorrelationId}", args.Message.CorrelationId);
             
             // Processing failed -> do not complete, Service Bus will retry.
             // Too many retries -> Service Bus moves it to DLQ.
         }
+    }
+
+    private static string GetIdempotencyKey(string? messageId, int orderId)
+    {
+        return string.IsNullOrWhiteSpace(messageId)
+            ? $"order-{orderId}"
+            : messageId;
+    }
+
+    private static Task<bool> IsAlreadyProcessedAsync(PaymentDbContext db, string idempotencyKey)
+    {
+        return db.ProcessedMessages
+            .AsNoTracking()
+            .AnyAsync(m => m.MessageId == idempotencyKey);
+    }
+
+    private static Payment CreatePayment(OrderCreatedEvent orderEvent)
+    {
+        return new Payment
+        {
+            TransactionId = Guid.NewGuid(),
+            OrderId = orderEvent.OrderId,
+            Amount = orderEvent.TotalAmount,
+            Currency = "USD",
+            Method = "Auto",
+            Status = "Processing",
+            CreatedAtUtc = DateTime.UtcNow
+        };
+    }
+
+    private static bool IsDuplicateMessageIdViolation(DbUpdateException ex)
+    {
+        // SQL Server duplicate key errors: 2627 (unique constraint), 2601 (unique index)
+        return ex.InnerException is SqlException sqlEx && (sqlEx.Number == 2627 || sqlEx.Number == 2601);
     }
 
     private Task ProcessErrorAsync(ProcessErrorEventArgs args)
