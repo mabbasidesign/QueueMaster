@@ -159,10 +159,48 @@ Infrastructure is modularized under infra:
 - servicebus.bicep
 - communication-email.bicep
 - functionapp.bicep
+- apim.bicep
 - main.bicep
 - main.bicepparam
 
-The current templates provision diagnostics settings for Service Bus and Communication/Email resources into Log Analytics via the Application Insights workspace.
+The current templates provision diagnostics settings for Service Bus, Communication Service, and APIM into Log Analytics via the Application Insights workspace.
+Note: Diagnostic settings are not created for Azure Communication Email Service because that resource type does not support diagnostics.
+
+### API Management Routing
+
+APIM base URL:
+
+- https://apim-queuemaster-dev.azure-api.net
+
+Configured APIs and operations (routing only, no APIM auth policies yet):
+
+1. Order API path prefix: /orders
+2. Payment API path prefix: /payments
+
+Order routes through APIM:
+
+- GET /orders/health
+- GET /orders/api/orders
+- GET /orders/api/orders/{id}
+- POST /orders/api/orders
+- PUT /orders/api/orders/{id}
+- DELETE /orders/api/orders/{id}
+
+Payment routes through APIM:
+
+- GET /payments/health
+- GET /payments/api/payments
+- GET /payments/api/payments/{transactionId}
+- GET /payments/api/payments/order/{orderId}
+- POST /payments/api/payments
+- PUT /payments/api/payments/{transactionId}
+- DELETE /payments/api/payments/{transactionId}
+
+Routing status:
+
+1. APIM APIs and operations are deployed successfully.
+2. End-to-end health checks currently depend on backend service availability and correct backend host URLs.
+3. If APIM returns 500, validate backend service health endpoints first.
 
 Example deployment command:
 
@@ -207,3 +245,8 @@ Messaging issues:
 ## Status
 
 Active development.
+
+Current cloud status summary:
+
+1. APIM foundation and routing operations are deployed.
+2. JWT/CORS policies are intentionally deferred until backend routing validation is complete.
