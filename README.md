@@ -202,6 +202,36 @@ Routing status:
 2. End-to-end health checks currently depend on backend service availability and correct backend host URLs.
 3. If APIM returns 500, validate backend service health endpoints first.
 
+Latest validation snapshot (2026-04-28):
+
+1. APIM order route health endpoint returned 500.
+2. APIM payment route health endpoint returned 500.
+3. OrderService health backend URL in current params did not resolve.
+4. PaymentService health backend URL returned 500.
+
+Quick route verification (PowerShell):
+
+```powershell
+$tests = @(
+  'https://apim-queuemaster-dev.azure-api.net/orders/health',
+  'https://apim-queuemaster-dev.azure-api.net/payments/health',
+  'https://orderservice-dev.azurewebsites.net/health',
+  'https://paymentservice-dev.azurewebsites.net/health'
+)
+foreach ($u in $tests) {
+  try {
+    $r = Invoke-WebRequest -UseBasicParsing -Uri $u -Method GET -TimeoutSec 20 -ErrorAction Stop
+    Write-Host "$u -> $([int]$r.StatusCode)"
+  } catch {
+    if ($_.Exception.Response) {
+      Write-Host "$u -> $([int]$_.Exception.Response.StatusCode.value__)"
+    } else {
+      Write-Host "$u -> FAIL"
+    }
+  }
+}
+```
+
 Example deployment command:
 
 ```bash
