@@ -16,11 +16,6 @@ param apimSkuName string = 'Developer'
 param orderServiceBackendUrl string
 @description('PaymentService backend URL for APIM forwarding.')
 param paymentServiceBackendUrl string
-@description('Microsoft Entra tenant ID used in APIM validate-jwt policy.')
-param entraTenantId string
-@description('Expected JWT audience in APIM validate-jwt policy.')
-param apimJwtAudience string
-
 @description('Data location for ACS Communication and Email services.')
 param notificationDataLocation string
 
@@ -71,8 +66,6 @@ module apim 'apim.bicep' = {
     logAnalyticsWorkspaceId: appinsights.outputs.workspaceId
     orderServiceBackendUrl: orderServiceBackendUrl
     paymentServiceBackendUrl: paymentServiceBackendUrl
-    entraTenantId: entraTenantId
-    jwtAudience: apimJwtAudience
   }
 }
 

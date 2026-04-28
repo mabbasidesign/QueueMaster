@@ -18,15 +18,6 @@ param logAnalyticsWorkspaceId string
 param orderServiceBackendUrl string
 @description('Backend URL for PaymentService, e.g. https://paymentservice-dev.azurewebsites.net')
 param paymentServiceBackendUrl string
-@description('Microsoft Entra tenant ID used for JWT validation in APIM policy.')
-param entraTenantId string
-@description('Expected API audience for JWT validation in APIM policy.')
-param jwtAudience string
-
-var entraLoginEndpoint = environment().authentication.loginEndpoint
-var openIdConfigUrl = '${entraLoginEndpoint}${entraTenantId}/v2.0/.well-known/openid-configuration'
-var v2Issuer = '${entraLoginEndpoint}${entraTenantId}/v2.0'
-
 resource apim 'Microsoft.ApiManagement/service@2023-05-01-preview' = {
   name: apimName
   location: location
@@ -89,24 +80,6 @@ resource paymentApi 'Microsoft.ApiManagement/service/apis@2023-05-01-preview' = 
     ]
     serviceUrl: paymentServiceBackendUrl
     subscriptionRequired: false
-  }
-}
-
-resource orderApiPolicy 'Microsoft.ApiManagement/service/apis/policies@2023-05-01-preview' = {
-  name: 'policy'
-  parent: orderApi
-  properties: {
-    format: 'rawxml'
-    value: '<policies><inbound><base /><cors><allowed-origins><origin>*</origin></allowed-origins><allowed-methods><method>*</method></allowed-methods><allowed-headers><header>*</header></allowed-headers></cors><validate-jwt header-name="Authorization" failed-validation-httpcode="401" require-expiration-time="true"><openid-config url="${openIdConfigUrl}" /><audiences><audience>${jwtAudience}</audience></audiences><issuers><issuer>${v2Issuer}</issuer><issuer>https://sts.windows.net/${entraTenantId}/</issuer></issuers></validate-jwt></inbound><backend><base /></backend><outbound><base /></outbound><on-error><base /></on-error></policies>'
-  }
-}
-
-resource paymentApiPolicy 'Microsoft.ApiManagement/service/apis/policies@2023-05-01-preview' = {
-  name: 'policy'
-  parent: paymentApi
-  properties: {
-    format: 'rawxml'
-    value: '<policies><inbound><base /><cors><allowed-origins><origin>*</origin></allowed-origins><allowed-methods><method>*</method></allowed-methods><allowed-headers><header>*</header></allowed-headers></cors><validate-jwt header-name="Authorization" failed-validation-httpcode="401" require-expiration-time="true"><openid-config url="${openIdConfigUrl}" /><audiences><audience>${jwtAudience}</audience></audiences><issuers><issuer>${v2Issuer}</issuer><issuer>https://sts.windows.net/${entraTenantId}/</issuer></issuers></validate-jwt></inbound><backend><base /></backend><outbound><base /></outbound><on-error><base /></on-error></policies>'
   }
 }
 

@@ -48,20 +48,6 @@ resource communicationService 'Microsoft.Communication/communicationServices@202
   }
 }
 
-resource emailServiceDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: 'diag-${emailService.name}'
-  scope: emailService
-  properties: {
-    workspaceId: logAnalyticsWorkspaceId
-    logs: [
-      {
-        categoryGroup: 'allLogs'
-        enabled: true
-      }
-    ]
-  }
-}
-
 resource communicationServiceDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   name: 'diag-${communicationService.name}'
   scope: communicationService
