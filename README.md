@@ -38,6 +38,7 @@ Related guides:
 1. Identity setup: IDENTITY-README.md
 2. APIM plan and integration notes: APIM-README.md
 3. Azure Container Apps deployment: ACA-README.md
+4. Azure SQL setup: SQL-README.md
 
 ## Tech Stack
 
