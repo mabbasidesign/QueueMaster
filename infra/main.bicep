@@ -22,6 +22,8 @@ param deployContainerAppsBase bool = false
 param deployOrderServiceContainerApp bool = false
 @description('Deploy PaymentService to Azure Container Apps.')
 param deployPaymentServiceContainerApp bool = false
+@description('Deploy Azure SQL resources for OrderService.')
+param deployOrderServiceSql bool = false
 @description('Location for Container Apps and ACR resources.')
 param containerAppsLocation string = location
 @description('Name of Azure Container Registry.')
@@ -42,6 +44,17 @@ param paymentServiceContainerAppName string = 'ca-paymentservice-${environmentNa
 param authTenantId string
 @description('Expected audience for API authentication.')
 param authAudience string
+@description('OrderService Azure SQL server name (globally unique).')
+param orderServiceSqlServerName string
+@description('OrderService Azure SQL database name.')
+param orderServiceSqlDatabaseName string = 'QueueMasterOrderService'
+@description('OrderService Azure SQL admin login username.')
+param orderServiceSqlAdminLogin string
+@secure()
+@description('OrderService Azure SQL admin login password.')
+param orderServiceSqlAdminPassword string = ''
+@description('Allow Azure services through SQL firewall (0.0.0.0 rule).')
+param orderServiceSqlAllowAzureServices bool = true
 @secure()
 @description('SQL connection string for OrderService in cloud.')
 param orderServiceSqlConnectionString string = ''
@@ -117,6 +130,21 @@ module containerAppsEnv 'containerapps-env.bicep' = if (deployContainerAppsBase)
   }
 }
 
+module orderServiceSql 'orderservice-sql.bicep' = if (deployOrderServiceSql) {
+  params: {
+    location: containerAppsLocation
+    sqlServerName: orderServiceSqlServerName
+    sqlDatabaseName: orderServiceSqlDatabaseName
+    sqlAdminLogin: orderServiceSqlAdminLogin
+    sqlAdminPassword: orderServiceSqlAdminPassword
+    allowAzureServices: orderServiceSqlAllowAzureServices
+  }
+}
+
+var effectiveOrderServiceSqlConnectionString = deployOrderServiceSql
+  ? 'Server=tcp:${orderServiceSql.outputs.fullyQualifiedDomainName},1433;Initial Catalog=${orderServiceSqlDatabaseName};Persist Security Info=False;User ID=${orderServiceSqlAdminLogin};Password=${orderServiceSqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;'
+  : orderServiceSqlConnectionString
+
 module orderServiceContainerApp 'orderservice-aca.bicep' = if (deployOrderServiceContainerApp) {
   params: {
     location: containerAppsLocation
@@ -126,7 +154,7 @@ module orderServiceContainerApp 'orderservice-aca.bicep' = if (deployOrderServic
     containerRegistryUsername: acr.outputs.adminUsername
     containerRegistryPassword: acr.outputs.adminPassword
     image: '${acr.outputs.loginServer}/${orderServiceImageTag}'
-    sqlConnectionString: orderServiceSqlConnectionString
+    sqlConnectionString: effectiveOrderServiceSqlConnectionString
     serviceBusConnectionString: servicebus.outputs.connectionString
     appInsightsConnectionString: appinsights.outputs.connectionString
     authTenantId: authTenantId
@@ -186,3 +214,4 @@ output containerRegistryLoginServer string = deployContainerAppsBase ? acr.outpu
 output containerAppsEnvironmentResourceId string = deployContainerAppsBase ? containerAppsEnv.outputs.id : ''
 output orderServiceContainerAppUrl string = deployOrderServiceContainerApp ? orderServiceContainerApp.outputs.url : ''
 output paymentServiceContainerAppUrl string = deployPaymentServiceContainerApp ? paymentServiceContainerApp.outputs.url : ''
+output orderServiceSqlServerFqdn string = deployOrderServiceSql ? orderServiceSql.outputs.fullyQualifiedDomainName : ''
