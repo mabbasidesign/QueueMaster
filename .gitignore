@@ -71,3 +71,7 @@ out/
 
 # Local solution file
 QueueMaster.sln
+
+# Documentation files: keep only root README
+**/*README*.md
+!/README.md
