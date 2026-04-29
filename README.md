@@ -33,6 +33,12 @@ Current behavior summary:
 
 For full details, see Service Bus guide: SERVICEBUS-README.md.
 
+Related guides:
+
+1. Identity setup: IDENTITY-README.md
+2. APIM plan and integration notes: APIM-README.md
+3. Azure Container Apps deployment: ACA-README.md
+
 ## Tech Stack
 
 - .NET 9
@@ -160,6 +166,10 @@ Infrastructure is modularized under infra:
 - communication-email.bicep
 - functionapp.bicep
 - apim.bicep
+- acr.bicep
+- containerapps-env.bicep
+- orderservice-aca.bicep
+- paymentservice-aca.bicep
 - main.bicep
 - main.bicepparam
 
@@ -200,14 +210,15 @@ Routing status:
 
 1. APIM APIs and operations are deployed successfully.
 2. End-to-end health checks currently depend on backend service availability and correct backend host URLs.
-3. If APIM returns 500, validate backend service health endpoints first.
+3. Validate backend service health endpoints before switching APIM backend URLs.
 
-Latest validation snapshot (2026-04-28):
+Backend status:
 
-1. APIM order route health endpoint returned 500.
-2. APIM payment route health endpoint returned 500.
-3. OrderService health backend URL in current params did not resolve.
-4. PaymentService health backend URL returned 500.
+1. OrderService is deployed on ACA at https://ca-orderservice-dev.politetree-44a10582.canadaeast.azurecontainerapps.io.
+2. OrderService `/health` is responding.
+3. OrderService `/api/orders` requires authentication.
+4. PaymentService ACA deployment is pending.
+5. APIM backend URLs still need to be updated to the ACA targets.
 
 Quick route verification (PowerShell):
 
@@ -220,13 +231,13 @@ $tests = @(
 )
 foreach ($u in $tests) {
   try {
-    $r = Invoke-WebRequest -UseBasicParsing -Uri $u -Method GET -TimeoutSec 20 -ErrorAction Stop
+    $r = Invoke-WebRequest -UseBasicParsing -Uri $u -Method GET -TimeoutSec 20
     Write-Host "$u -> $([int]$r.StatusCode)"
   } catch {
     if ($_.Exception.Response) {
       Write-Host "$u -> $([int]$_.Exception.Response.StatusCode.value__)"
     } else {
-      Write-Host "$u -> FAIL"
+      Write-Host "$u -> no response"
     }
   }
 }
@@ -251,7 +262,7 @@ dotnet build QueueMaster.sln
 
 ## Troubleshooting
 
-If build fails:
+If build needs a clean retry:
 
 ```bash
 dotnet restore
@@ -265,18 +276,22 @@ netstat -ano | findstr :5000
 taskkill /PID <PID> /F
 ```
 
-Messaging issues:
+Messaging checks:
 
 1. Check unpublished outbox events in OrderService database.
-2. Check Service Bus subscription dead-letter queue for poison messages.
+2. Check Service Bus subscription dead-letter queue state.
 3. Check ProcessedMessages table in PaymentService database to confirm duplicate detection state.
-4. Review PaymentService logs for message processing exceptions.
+4. Review PaymentService logs for processing activity.
 
 ## Status
 
 Active development.
 
-Current cloud status summary:
+Cloud status:
 
 1. APIM foundation and routing operations are deployed.
-2. JWT/CORS policies are intentionally deferred until backend routing validation is complete.
+2. ACR and ACA environment are deployed.
+3. OrderService is deployed on ACA and publicly reachable.
+4. PaymentService ACA deployment is pending.
+5. APIM backend URLs are not switched to ACA URLs yet.
+6. JWT/CORS policies are intentionally deferred until backend routing validation is complete.
