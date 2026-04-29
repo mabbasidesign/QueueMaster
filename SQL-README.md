@@ -23,6 +23,13 @@ Current module behavior in infra/orderservice-sql.bicep:
 2. Creates OrderService database
 3. Optionally creates `AllowAzureServices` firewall rule (`0.0.0.0`)
 
+Current Key Vault behavior in infra/keyvault.bicep:
+
+1. Creates Key Vault with RBAC authorization enabled
+2. Keeps purge protection enabled
+3. Can create OrderService SQL secrets when enabled
+4. Exposes vault URI and vault resource details as outputs
+
 ## Key Deployment Parameters
 
 Primary SQL flags and parameters in infra/main.bicep:
@@ -34,6 +41,13 @@ Primary SQL flags and parameters in infra/main.bicep:
 5. orderServiceSqlAdminPassword
 6. orderServiceSqlAllowAzureServices
 7. orderServiceSqlConnectionString
+
+Key Vault-related parameters in infra/main.bicep:
+
+1. deployKeyVault
+2. keyVaultName
+3. keyVaultTenantId
+4. createOrderServiceSqlSecretsInKeyVault
 
 In main.bicepparam these are environment-variable driven.
 
@@ -56,6 +70,45 @@ Recommended pattern:
 2. Store final SQL connection string in Key Vault
 3. Grant read access to deployment identity and/or workload identity
 4. Reference Key Vault secrets during deployment instead of passing plaintext values
+
+Current project secret names:
+
+1. orderservice-sql-admin-password
+2. orderservice-sql-connection-string
+
+Current Key Vault target:
+
+1. Name: kv-queuemaster-dev
+2. URI: https://kv-queuemaster-dev.vault.azure.net/
+
+## Deploy Key Vault Only
+
+Use this command when to provision only Key Vault without touching unrelated resources:
+
+```bash
+az deployment group create \
+   --name qm-keyvault-create-<timestamp> \
+   --resource-group rg-queuemaster-dev \
+   --template-file infra/keyvault.bicep \
+   --parameters location=canadaeast keyVaultName=kv-queuemaster-dev tenantId=<tenant-id> createOrderServiceSqlSecrets=false \
+   --mode Incremental
+```
+
+## Store SQL Secrets in Key Vault
+
+Store secrets with Azure CLI:
+
+```bash
+az keyvault secret set --vault-name kv-queuemaster-dev --name orderservice-sql-admin-password --value "<sql-admin-password>"
+az keyvault secret set --vault-name kv-queuemaster-dev --name orderservice-sql-connection-string --value "<sql-connection-string>"
+```
+
+Verify secrets exist:
+
+```bash
+az keyvault secret show --vault-name kv-queuemaster-dev --name orderservice-sql-admin-password --query id -o tsv
+az keyvault secret show --vault-name kv-queuemaster-dev --name orderservice-sql-connection-string --query id -o tsv
+```
 
 ## SQL Identity and Database User Model
 
@@ -131,6 +184,14 @@ Benefits:
 3. Add secret: `orderservice-sql-connection-string`
 4. Configure deployment to resolve secrets from Key Vault
 5. Deploy SQL resources and OrderService ACA using resolved values
+
+If want template-managed secret creation during deployment, set:
+
+1. deployKeyVault=true
+2. createOrderServiceSqlSecretsInKeyVault=true
+3. Provide either:
+   - orderServiceSqlAdminPassword and deployOrderServiceSql=true (template composes connection string), or
+   - orderServiceSqlConnectionString directly
 
 ## Deployment Sequence
 

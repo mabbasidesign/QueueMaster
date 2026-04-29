@@ -24,6 +24,8 @@ param deployOrderServiceContainerApp bool = false
 param deployPaymentServiceContainerApp bool = false
 @description('Deploy Azure SQL resources for OrderService.')
 param deployOrderServiceSql bool = false
+@description('Deploy Azure Key Vault for secret storage.')
+param deployKeyVault bool = false
 @description('Location for Container Apps and ACR resources.')
 param containerAppsLocation string = location
 @description('Name of Azure Container Registry.')
@@ -53,6 +55,12 @@ param orderServiceSqlAdminLogin string
 @secure()
 @description('OrderService Azure SQL admin login password.')
 param orderServiceSqlAdminPassword string = ''
+@description('Azure Key Vault name (globally unique).')
+param keyVaultName string
+@description('Tenant ID used by Azure Key Vault.')
+param keyVaultTenantId string = subscription().tenantId
+@description('Create OrderService SQL secrets in Key Vault during deployment.')
+param createOrderServiceSqlSecretsInKeyVault bool = false
 @description('Allow Azure services through SQL firewall (0.0.0.0 rule).')
 param orderServiceSqlAllowAzureServices bool = true
 @secure()
@@ -145,6 +153,17 @@ var effectiveOrderServiceSqlConnectionString = deployOrderServiceSql
   ? 'Server=tcp:${orderServiceSql.outputs.fullyQualifiedDomainName},1433;Initial Catalog=${orderServiceSqlDatabaseName};Persist Security Info=False;User ID=${orderServiceSqlAdminLogin};Password=${orderServiceSqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;'
   : orderServiceSqlConnectionString
 
+module keyVault 'keyvault.bicep' = if (deployKeyVault) {
+  params: {
+    location: containerAppsLocation
+    keyVaultName: keyVaultName
+    tenantId: keyVaultTenantId
+    createOrderServiceSqlSecrets: createOrderServiceSqlSecretsInKeyVault
+    orderServiceSqlAdminPassword: orderServiceSqlAdminPassword
+    orderServiceSqlConnectionString: effectiveOrderServiceSqlConnectionString
+  }
+}
+
 module orderServiceContainerApp 'orderservice-aca.bicep' = if (deployOrderServiceContainerApp) {
   params: {
     location: containerAppsLocation
@@ -215,3 +234,5 @@ output containerAppsEnvironmentResourceId string = deployContainerAppsBase ? con
 output orderServiceContainerAppUrl string = deployOrderServiceContainerApp ? orderServiceContainerApp.outputs.url : ''
 output paymentServiceContainerAppUrl string = deployPaymentServiceContainerApp ? paymentServiceContainerApp.outputs.url : ''
 output orderServiceSqlServerFqdn string = deployOrderServiceSql ? orderServiceSql.outputs.fullyQualifiedDomainName : ''
+output keyVaultName string = deployKeyVault ? keyVault.outputs.keyVaultName : ''
+output keyVaultUri string = deployKeyVault ? keyVault.outputs.vaultUri : ''
